@@ -1,0 +1,9 @@
+Package: iteratedsocialchoice
+Version: 1
+Date: 2009-05-12 
+Author: Claudio Baccigalupo <claudio@iiia.csic.es>
+Maintainer: Claudio Baccigalupo <claudio@iiia.csic.es>
+Title: Evaluation of iterated social choice techniques
+Description: Functions to launch iterated experiments to evaluate whether a group of persons can be satisfied by the selection of a sequence of items tailored for the preferences of the group. Different experiments analyse the effect of different factors such as the size of the group, the number of retrieved items at each turn, the misery threshold, the influence of past satisfaction, the satisfaction decay, the initial satisfaction.
+License: GPL 2
+URL: http://www.iiia.csic.es/~claudio

@@ -1,0 +1,68 @@
+Iterated Social Choice
+===========
+
+Provides functions to evaluate the "satisfaction-weighted average without misery" technique to provide a group of persons with a sequence of items customised for their preferences.
+
+This method works in an iterative form: to select each item, the preferences and satisfactions of each person are considered, and the item with the highest average preference is selected. 
+The average excludes elements that fall below a "misery" threshold of individual preference.
+The average also assigns different importance to different persons according to how much they have been satisfied so far by the items selected.
+After one item has been selected, individual satisfaction degrees are updated and the selection for the next item begins.
+
+At the moment, he individual preferences of the persons are randomly generated.
+
+State
+=======
+
+In development
+
+To do
+=======
+
+* Create a proper R package
+* Import preferences from real persons
+* Return data analysis such as variance
+
+Methods
+=======
+
+ exp0
+
+Plots preferences and satisfactions for the default parameters
+
+ exp1
+
+Shows how the number of persons affects individual satisfaction.
+Hypothesis: the more the persons, the smaller their satisfactions.
+
+ exp2
+
+Shows how the number of retrieved items at each turn affects satisfaction.
+Hypothesis: the more the retrieved items, the higher the satisfaction.
+Note: increasing the retrieval size can be expensive
+
+ exp3
+
+Shows how the misery threshold affects the group preference.
+Hypothesis: the higher the threshold, the smaller the group preference
+
+ exp4
+
+Shows how weighting by satisfaction affects the variance of satisfaction
+Hypothesis: assigning at each turn a higher importance to less satisfied persons provides more fairness, resulting in a smaller variance between individual satisfactions
+ 
+ exp5
+
+Shows how the satisfaction decay affects the satisfaction
+Hypothesis: none
+
+ exp6
+
+Shows how the individual satisfaction affects the satisfaction
+Hypothesis: none
+
+
+Credits
+=======
+
+
+Copyright (c) 2009 Claudio Baccigalupo, released under the MIT license
