@@ -67,8 +67,10 @@ generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=I
 #    Plotting functions                                                      #
 ##############################################################################
 
-plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=TRUE, plot_add=FALSE, plot_misery=FALSE, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, bimodal=BIMODAL, bump=BUMP, chi=CHI, ylim=c(-1,1), ...) {
+plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=TRUE, plot_add=FALSE, plot_misery=FALSE, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, bimodal=BIMODAL, bump=BUMP, chi=CHI, ylim=c(-1,1), plot_aggregate=NULL, ...) {
  means = apply(values, c(1,2), mean, na.rm=TRUE)
+ if(!is.null(plot_aggregate))
+    means = array(apply(means, 2, plot_aggregate, na.rm=TRUE), dim=c(1,ncol(means)))
  ylab = if(nrow(means) == 1) plot_title else paste(plot_title, "s", sep="")
  for (l in 1:nrow(means)) {
   main = create_title(ylab, plot_box, which = if(nrow(means) > 1) l, persons, retrieval, misery, iota, weighted, bimodal, bump, chi)
@@ -137,11 +139,15 @@ plot_preferences_and_satisfactions <- function(...) {
  par(mar=c(5, 4, 4, 2) + 0.1)
 }
 
+plot_satisfactions_deviation <- function(...) {
+ plot_values(satisfactions, plot_title="Satisfaction (std dev)", plot_aggregate="sd", ylim=c(0,0.5), lwd=2, ...)   
+}
+
 ##############################################################################
 #    Setup: Draw plotting area                                               #
 ##############################################################################
 
-quartz(family="Avenir LT Std",width=10,height=6,bg="white")
+quartz(family="Avenir LT Std",width=10,height=6) # ,bg="white")
 
 ##############################################################################
 #    Experiment 0: Basic preferences and satisfactions plots                 #
@@ -166,7 +172,7 @@ exp1 <- function(persons_range = 1:20) {
 
   params = list(persons=persons)
   do.call("generate", params) 
-  do.call("plot_satisfactions", params) 
+  do.call("plot_satisfactions", params)
  }
 }
 
@@ -244,5 +250,24 @@ exp6 <- function(iota_range = seq(0,1,by=0.1)) {
   params = list(iota=iota)
   do.call("generate", params) 
   do.call("plot_satisfactions", params) 
+ }
+}
+
+
+##############################################################################
+#    Experiment 7: How memory influences standard deviation of satisfaction  #
+##############################################################################
+
+exp7 <- function(persons_range = seq(3,20,by=2)) {
+ for (persons in persons_range) {
+  # Generate heterogeneous persons, WITH memory of past satisfaction
+  params = list(persons=persons, bimodal=TRUE, weighted=1, bump=0)
+  do.call("generate", params) 
+  do.call("plot_satisfactions_deviation", c(params, plot_save = FALSE))
+
+  # Generate heterogeneous persons, WITHOUT memory of past satisfaction
+  params = list(persons=persons, bimodal=TRUE, weighted=0, bump=0)
+  do.call("generate", params) 
+  do.call("plot_satisfactions_deviation", c(params, plot_add = TRUE, lty="12"))
  }
 }
