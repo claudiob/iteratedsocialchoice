@@ -10,15 +10,15 @@ WEIGHTED   = 1     # Whether past satisfaction affects next selections
 CHI        = 0.8   # Measure by which past satisfaction affects satisfaction
 IOTA       = 0.4   # Initial satisfaction of each person
 MISERY     = -0.75 # Threshold of minimum preference acceptable
-BIMODAL    = FALSE # Whether preferences follow a bimodal distribution
+UNIFORM    = TRUE  # Whether preferences follow a uniform distribution
 BUMP       = -1    # Factor of bump in a bimodal distribution of preferences
-
+SAVE       = TRUE  # Whether to save plotted graphs to hard disk
 
 ##############################################################################
 #    Generation of random individual preferences                             #
 ##############################################################################
 
-generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, bimodal=BIMODAL, bump=BUMP, ratings=NULL, chi=CHI) {
+generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, bump=BUMP, ratings=NULL, chi=CHI) {
 
  combine_preferences <- function(current_preferences, past_satisfactions, misery, weighted)
   if (any(current_preferences < misery)) NA else 
@@ -28,9 +28,9 @@ generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=I
  combine_satisfactions <- function(pref, sat, step, chi=CHI)
   sat + (0.5*(pref + 1)-sat)/sum(chi**(0:step))
   
- create_preferences  <- function(rows, cols, bimodal=BIMODAL, bump=BUMP) {
+ create_preferences  <- function(rows, cols, uniform=UNIFORM, bump=BUMP) {
   pref = array(runif(rows*cols), dim=c(rows, cols))*(1-bump) + bump
-  if(bimodal) {
+  if(!uniform) {
    pref[(1:ceiling(rows/2)),(1:ceiling(cols/2))]   = -pref[(1:ceiling(rows/2)),(1:ceiling(cols/2))]
    pref[-(1:ceiling(rows/2)),-(1:ceiling(cols/2))] = -pref[-(1:ceiling(rows/2)),-(1:ceiling(cols/2))]
   }
@@ -44,7 +44,7 @@ generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=I
  for (iteration in 1:iterations) {
   for (song in 1:turns) {
    past_satisfactions <- if(song == 1) rep(iota, persons) else satisfactions[, song-1,iteration]
-   preferences_matrix <- if(is.null(ratings)) create_preferences(retrieval, persons, bimodal, bump) else array(ratings[song], dim=c(retrieval, persons))  
+   preferences_matrix <- if(is.null(ratings)) create_preferences(retrieval, persons, uniform, bump) else array(ratings[song], dim=c(retrieval, persons))  
    group_pref_matrix  <- apply(preferences_matrix, 1, combine_preferences, past_satisfactions=past_satisfactions, misery=misery, weighted=weighted)
    if(all(is.na(group_pref_matrix))) { # If every preference is below misery
     # Take the candidate with the less worse misery
@@ -67,17 +67,17 @@ generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=I
 #    Plotting functions                                                      #
 ##############################################################################
 
-plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=TRUE, plot_add=FALSE, plot_misery=FALSE, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, bimodal=BIMODAL, bump=BUMP, chi=CHI, ylim=c(-1,1), plot_aggregate=NULL, ...) {
+plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=SAVE, plot_add=FALSE, plot_axis=FALSE, plot_misery=FALSE, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, bump=BUMP, chi=CHI, ylim=c(-1,1), plot_aggregate=NULL, ...) {
  means = apply(values, c(1,2), mean, na.rm=TRUE)
  if(!is.null(plot_aggregate))
     means = array(apply(means, 2, plot_aggregate, na.rm=TRUE), dim=c(1,ncol(means)))
  ylab = if(nrow(means) == 1) plot_title else paste(plot_title, "s", sep="")
  for (l in 1:nrow(means)) {
-  main = create_title(ylab, plot_box, which = if(nrow(means) > 1) l, persons, retrieval, misery, iota, weighted, bimodal, bump, chi)
+  main = create_title(ylab, plot_box, which = if(nrow(means) > 1) l, persons, retrieval, misery, iota, weighted, uniform, bump, chi)
   if(l > 1 && plot_box && plot_save) save_plot(main)
   if((l == 1 || plot_box) && !plot_add)
    plot(1:ncol(means), xlim=c(1,ncol(means)), main=main, type="n",xlab="Songs",ylab=strsplit(ylab, " and ")[[1]][1], font=3,cex=1.3, cex.lab=1.3, mgp=c(2.4,1,0), ylim=ylim)
-  if(plot_add) {
+  if(plot_axis) {
    axis(4)
    mtext(ylab, side=4, line=2.5, font=1,cex=1.3, cex.lab=1.3)    
   }
@@ -96,10 +96,10 @@ plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=TRUE, p
  if(plot_save) save_plot(main)
 }
 
-create_title <- function(plot_title="", plot_box=FALSE, which=NULL, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, bimodal=BIMODAL, bump=BUMP, chi=CHI) {
+create_title <- function(plot_title="", plot_box=FALSE, which=NULL, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, bump=BUMP, chi=CHI) {
  title=paste(plot_title, ", ", 
         if(!weighted)                   "unweighted, ",
-        if(bimodal)                     "bimodal, ", 
+        if(!uniform)                    "bimodal, ", 
         if(persons != PERSONS)      paste(persons, 
          if(persons == 1) "person, " else "persons, "), 
         if(retrieval != RETRIEVAL)      paste(retrieval, "retrieved, "), 
@@ -135,7 +135,7 @@ plot_preferences_and_satisfactions <- function(...) {
  # Plots only for the first listener
  par(mar=c(5, 4, 4, 4) + 0.1)
  plot_values(array(preferences[1,,], dim=c(1,dim(preferences)[2:3])), plot_save = FALSE, plot_title="Preference and satisfaction", ylim=c(-1,1), lty="12", lwd=1.5, ...)   
- plot_values(array(satisfactions[1,,], dim=c(1,dim(satisfactions)[2:3])), plot_add = TRUE, plot_title="Satisfaction", ylim=c(0,1), lwd=2, ...)   
+ plot_values(array(satisfactions[1,,], dim=c(1,dim(satisfactions)[2:3])), plot_add = TRUE, plot_axis=TRUE, plot_title="Satisfaction", ylim=c(0,1), lwd=2, ...)   
  par(mar=c(5, 4, 4, 2) + 0.1)
 }
 
@@ -211,13 +211,13 @@ exp4 <- function(bump_range = seq(-1,1,by=0.1)) { # nice example with 0.5
  for (bump in bump_range) {
 
   # Generate heterogeneous persons, NOT WEIGHTING with past satisfactions
-  params = list(bimodal=TRUE, weighted=0, bump=bump)
+  params = list(uniform=FALSE, weighted=0, bump=bump)
   do.call("generate", params) 
   do.call("plot_preferences", params) 
   do.call("plot_satisfactions", params) 
   
   # Generate heterogeneous persons, WEIGHTING with past satisfactions
-  params = list(bimodal=TRUE, weighted=1, bump=bump)
+  params = list(uniform=FALSE, weighted=1, bump=bump)
   do.call("generate", params) 
   do.call("plot_preferences", params) 
   do.call("plot_satisfactions", params) 
@@ -261,13 +261,28 @@ exp6 <- function(iota_range = seq(0,1,by=0.1)) {
 exp7 <- function(persons_range = seq(3,20,by=2)) {
  for (persons in persons_range) {
   # Generate heterogeneous persons, WITH memory of past satisfaction
-  params = list(persons=persons, bimodal=TRUE, weighted=1, bump=0)
+  params = list(persons=persons, uniform=FALSE, weighted=1, bump=0)
   do.call("generate", params) 
   do.call("plot_satisfactions_deviation", c(params, plot_save = FALSE))
 
   # Generate heterogeneous persons, WITHOUT memory of past satisfaction
-  params = list(persons=persons, bimodal=TRUE, weighted=0, bump=0)
+  params = list(persons=persons, uniform=FALSE, weighted=0, bump=0)
   do.call("generate", params) 
   do.call("plot_satisfactions_deviation", c(params, plot_add = TRUE, lty="12"))
+ }
+}
+
+##############################################################################
+#    Experiment 8: How group affinity affects satisfaction                   #
+##############################################################################
+
+exp8 <- function(persons_range = c(5,20), bump_range = seq(-1,1,by=0.1)) {
+ for (persons in persons_range) {
+  for (bump in bump_range) {
+   # Generate heterogeneous persons, WITH memory of past satisfaction
+   params = list(weighted=1, bump=bump)
+   do.call("generate", params) 
+   do.call("plot_satisfactions", params) 
+  }
  }
 }
