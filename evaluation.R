@@ -11,6 +11,7 @@ CHI        = 0.8   # Measure by which past satisfaction affects satisfaction
 IOTA       = 0.4   # Initial satisfaction of each person
 MISERY     = -0.75 # Threshold of minimum preference acceptable
 UNIFORM    = TRUE  # Whether preferences follow a uniform distribution
+EXPERTISE  = 1     # Percentage of items for which persons have preferences
 BUMP       = -1    # Factor of bump in a bimodal distribution of preferences
 SAVE       = TRUE  # Whether to save plotted graphs to hard disk
 
@@ -18,22 +19,24 @@ SAVE       = TRUE  # Whether to save plotted graphs to hard disk
 #    Generation of random individual preferences                             #
 ##############################################################################
 
-generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, bump=BUMP, ratings=NULL, chi=CHI) {
+generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, expertise=EXPERTISE, bump=BUMP, ratings=NULL, chi=CHI) {
 
  combine_preferences <- function(current_preferences, past_satisfactions, misery, weighted)
-  if (any(current_preferences < misery)) NA else 
-  if(all(past_satisfactions == 1)) 0 else # rep(0, length(current_preferences)) else 
+  if (any(current_preferences < misery, na.rm=TRUE)) NA else 
+  if(all(past_satisfactions == 1, na.rm=TRUE)) 0 else # rep(0, length(current_preferences)) else 
   sum((1-past_satisfactions)**weighted*current_preferences)/(sum((1-past_satisfactions)**weighted))
  
  combine_satisfactions <- function(pref, sat, step, chi=CHI)
   sat + (0.5*(pref + 1)-sat)/sum(chi**(0:step))
   
- create_preferences  <- function(rows, cols, uniform=UNIFORM, bump=BUMP) {
+ create_preferences  <- function(rows, cols, uniform=UNIFORM, bump=BUMP, expertise=EXPERTISE) {
   pref = array(runif(rows*cols), dim=c(rows, cols))*(1-bump) + bump
   if(!uniform) {
    pref[(1:ceiling(rows/2)),(1:ceiling(cols/2))]   = -pref[(1:ceiling(rows/2)),(1:ceiling(cols/2))]
    pref[-(1:ceiling(rows/2)),-(1:ceiling(cols/2))] = -pref[-(1:ceiling(rows/2)),-(1:ceiling(cols/2))]
   }
+  if(expertise < 1)
+   for(i in 1:cols) pref[sample(1:rows)[1:round((1-expertise)*rows)],i] <- 0
   pref   
  }
 
@@ -44,7 +47,7 @@ generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=I
  for (iteration in 1:iterations) {
   for (song in 1:turns) {
    past_satisfactions <- if(song == 1) rep(iota, persons) else satisfactions[, song-1,iteration]
-   preferences_matrix <- if(is.null(ratings)) create_preferences(retrieval, persons, uniform, bump) else array(ratings[song], dim=c(retrieval, persons))  
+   preferences_matrix <- if(is.null(ratings)) create_preferences(retrieval, persons, uniform, bump, expertise) else array(ratings[song], dim=c(retrieval, persons))  
    group_pref_matrix  <- apply(preferences_matrix, 1, combine_preferences, past_satisfactions=past_satisfactions, misery=misery, weighted=weighted)
    if(all(is.na(group_pref_matrix))) { # If every preference is below misery
     # Take the candidate with the less worse misery
@@ -67,36 +70,36 @@ generate <- function(persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=I
 #    Plotting functions                                                      #
 ##############################################################################
 
-plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=SAVE, plot_add=FALSE, plot_axis=FALSE, plot_misery=FALSE, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, bump=BUMP, chi=CHI, ylim=c(-1,1), plot_aggregate=NULL, ...) {
+plot_values <- function(values, plot_box=FALSE, plot_title="", plot_save=SAVE, plot_add=FALSE, plot_axis=FALSE, plot_misery=FALSE, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM,  expertise=EXPERTISE, bump=BUMP, chi=CHI, ylim=c(-1,1), plot_aggregate=NULL, ...) {
  means = apply(values, c(1,2), mean, na.rm=TRUE)
  if(!is.null(plot_aggregate))
     means = array(apply(means, 2, plot_aggregate, na.rm=TRUE), dim=c(1,ncol(means)))
  ylab = if(nrow(means) == 1) plot_title else paste(plot_title, "s", sep="")
  for (l in 1:nrow(means)) {
-  main = create_title(ylab, plot_box, which = if(nrow(means) > 1) l, persons, retrieval, misery, iota, weighted, uniform, bump, chi)
+  main = create_title(ylab, plot_box, which = if(nrow(means) > 1) l, persons, retrieval, misery, iota, weighted, uniform, expertise, bump, chi)
   if(l > 1 && plot_box && plot_save) save_plot(main)
   if((l == 1 || plot_box) && !plot_add)
-   plot(1:ncol(means), xlim=c(1,ncol(means)), main=main, type="n",xlab="Songs",ylab=strsplit(ylab, " and ")[[1]][1], font=3,cex=1.3, cex.lab=1.3, mgp=c(2.4,1,0), ylim=ylim)
-  if(plot_axis) {
-   axis(4)
-   mtext(ylab, side=4, line=2.5, font=1,cex=1.3, cex.lab=1.3)    
-  }
+   plot(1:ncol(means), xlim=c(1,ncol(means)), main=main, type="n",xlab="Songs",ylab=strsplit(ylab, " and ")[[1]][1], font=1,cex=1.3, cex.lab=1.3, mgp=c(2.4,1,0), ylim=ylim)
   par(new=TRUE)
   if(plot_box) {
    data = lapply(as.data.frame(aperm(values[l,,])), function(x) {x[x==-1] = NA; x}) # I'm sure there's a better way to write this
-   boxplot(data, range=0, xlim=c(1,ncol(means)), na.action = na.pass, boxcol=rainbow(nrow(means))[l], whiskcol=rainbow(nrow(means))[l], col="transparent", lwd=0.75, xlab="",  ylab="", xaxt="n",  yaxt="n", axes=FALSE, font=3,cex=1.3,cex.main=1, ylim=ylim)
+   boxplot(data, range=0, xlim=c(1,ncol(means)), na.action = na.pass, boxcol=rainbow(nrow(means))[l], whiskcol=rainbow(nrow(means))[l], col="transparent", lwd=0.75, xlab="",  ylab="", xaxt="n",  yaxt="n", axes=FALSE, font=1,cex=1.3,cex.main=1, ylim=ylim)
    par(new=TRUE)
   }
-  plot(means[l,], xlim=c(1,ncol(means)), col=rainbow(nrow(means))[l], type="l", xlab="",  ylab="", xaxt="n",  yaxt="n", axes=FALSE, font=3, cex=1.3, ylim=ylim, ...) 
+  plot(means[l,], xlim=c(1,ncol(means)), col=rainbow(nrow(means))[l], type="l", xlab="",  ylab="", xaxt="n",  yaxt="n", axes=FALSE, font=1, cex=1.3, ylim=ylim, ...) 
   if(plot_misery && !plot_add) {
    par(new=TRUE)
-   plot(c(1-5,ncol(means)+5),c(misery,misery), xlim=c(1,ncol(means)), lwd=0.4, lty="12", type="l", xlab="",  ylab="", xaxt="n",  yaxt="n", axes=FALSE, font=3,cex=1.3,cex.main=1, ylim=ylim)     
+   plot(c(1-5,ncol(means)+5),c(misery,misery), xlim=c(1,ncol(means)), lwd=0.4, lty="12", type="l", xlab="",  ylab="", xaxt="n",  yaxt="n", axes=FALSE, font=1,cex=1.3,cex.main=1, ylim=ylim)     
   }
+ }
+ if(plot_axis) {
+  axis(4)
+  mtext(ylab, side=4, line=2.5, font=1,cex=1.3, cex.lab=1.3)    
  }
  if(plot_save) save_plot(main)
 }
 
-create_title <- function(plot_title="", plot_box=FALSE, which=NULL, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM, bump=BUMP, chi=CHI) {
+create_title <- function(plot_title="", plot_box=FALSE, which=NULL, persons=PERSONS, retrieval=RETRIEVAL, misery=MISERY, iota=IOTA, weighted=WEIGHTED, uniform=UNIFORM,  expertise=EXPERTISE, bump=BUMP, chi=CHI) {
  title=paste(plot_title, ", ", 
         if(!weighted)                   "unweighted, ",
         if(!uniform)                    "bimodal, ", 
@@ -104,6 +107,7 @@ create_title <- function(plot_title="", plot_box=FALSE, which=NULL, persons=PERS
          if(persons == 1) "person, " else "persons, "), 
         if(retrieval != RETRIEVAL)      paste(retrieval, "retrieved, "), 
         if(misery != MISERY)            paste("misery ", misery, ", ", sep=""),
+        if(expertise != EXPERTISE)      paste("expertise ", expertise, ", ", sep=""),
         if(bump != BUMP)                paste("bump ", bump, ", ", sep=""),
         if(chi != CHI)                  paste("chi ", chi, ", ", sep=""),
         if(iota != IOTA)                paste("iota ", iota, ", ", sep=""),
@@ -141,6 +145,14 @@ plot_preferences_and_satisfactions <- function(...) {
 
 plot_satisfactions_deviation <- function(...) {
  plot_values(satisfactions, plot_title="Satisfaction (std dev)", plot_aggregate="sd", ylim=c(0,0.5), lwd=2, ...)   
+}
+
+plot_assessed_preferences <- function(...) {
+ assessed = apply(preferences, c(1,2), function(x) length(which(x == 0))/iterations)
+ par(mar=c(5, 4, 4, 4) + 0.1)
+ plot_values(assessed, plot_title="Discovered item", ylim=c(0,1), lty="12", plot_save = FALSE, lwd=1.5, ...)   
+ plot_values(satisfactions, plot_title="Satisfaction", ylim=c(0,1), lwd=2, plot_add = TRUE, plot_axis=TRUE, ...)   
+ par(mar=c(5, 4, 4, 2) + 0.1)
 }
 
 ##############################################################################
@@ -280,9 +292,22 @@ exp8 <- function(persons_range = c(5,20), bump_range = seq(-1,1,by=0.1)) {
  for (persons in persons_range) {
   for (bump in bump_range) {
    # Generate heterogeneous persons, WITH memory of past satisfaction
-   params = list(weighted=1, bump=bump)
+   params = list(persons=persons, weighted=1, bump=bump)
    do.call("generate", params) 
    do.call("plot_satisfactions", params) 
   }
+ }
+}
+
+##############################################################################
+#    Experiment 9: How the quantity of ind. preferences affects satisfaction #
+##############################################################################
+
+exp9 <- function(expertise_range = seq(1,0,by=-0.1)) {
+ for (expertise in expertise_range) {
+  # Generate heterogeneous persons, WITH memory of past satisfaction
+  params = list(expertise=expertise)
+  do.call("generate", params) 
+  do.call("plot_assessed_preferences", params) 
  }
 }
